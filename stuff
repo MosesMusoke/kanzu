@@ -1,0 +1,689 @@
+userProfileWeb
+import {
+  StyleSheet,
+  Text,
+  View,
+  ImageBackground,
+  Image,
+  Button,
+  Platform,
+  TouchableOpacity,
+  SafeAreaView,
+  Pressable,
+} from 'react-native';
+import { DataTable, Card, TextInput } from 'react-native-paper';
+import * as DocumentPicker from 'expo-document-picker';
+import { Entypo } from '@expo/vector-icons';
+import moment from 'moment';
+// import { BottomSheet } from 'react-native-btr';
+import React, { useState, useEffect } from 'react';
+import { useSelector } from 'react-redux';
+
+import Row, { Col } from '../../components/Row';
+import { styles as DashboardStyles } from '../dashboard/DashboardStyles';
+import SideMenu from '../../components/SideMenu/SideMenu';
+import Footer from '../../components/footer/footer';
+import ChangePasswordModal from '../changePassword/ChangePasswordWeb';
+import TrackScreenHit from "../../utils/analytics"
+
+
+import { AccountService } from '../../components/common/account.service';
+
+export default function UserProfile({ navigation }: any) {
+  const [fsp, setFsp] = useState('');
+  const profileImage = useSelector((state) => (state as any).image);
+  const user = useSelector((state) => (state as any).loggedInUser);
+  TrackScreenHit("Profile Page")
+
+
+  const accountService = new (AccountService as any)();
+
+  useEffect(() => {
+    getTenantIdentifier();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [false]);
+
+  const getTenantIdentifier = async () => {
+    const tenantId = await accountService.getTenantId();
+    setFsp(tenantId);
+  };
+
+  const apiHeaders = {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  };
+
+  const [image, setProf] = useState("");
+  const pickDocument = async () => {
+    await DocumentPicker.getDocumentAsync({
+      type: '*/*',
+      copyToCacheDirectory: true,
+    }).then((response: any) => {
+      if (response.type === 'success') {
+        const { file } = response;
+        let { uri } = response;
+
+        if (Platform.OS === 'android' && uri[0] === '/') {
+          uri = `file://${uri}`;
+          uri = uri.replace(/%/g, '%25');
+        }
+
+        setProf(file);
+        
+      }
+    });
+  };
+
+  const uploadFile = async () => {
+    const formData = new FormData();
+    formData.append('file', image);
+
+    // eslint-disable-next-line no-shadow
+    const clientId = await accountService.getClientId();
+
+    accountService
+      .profileUpload(clientId, formData, apiHeaders)
+      .then((response: any) => {
+        return console.log(response.data);
+      })
+      .catch((error: any) => {
+        console.log(error, 'Photo was not uploaded');
+      });
+
+    setProf("")
+  };
+
+  return (
+    <View style={[DashboardStyles.web]}>
+      <Row>
+        <Col customStyles={{ flex: 1, alignItems: 'center' }}>
+          <SideMenu navigation={navigation} page="Profile" />
+        </Col>
+
+        <Col customStyles={{ flex: 4 }}>
+          <Row>
+            <Col
+              customStyles={{
+                flex: 1,
+              }}
+            >
+              <Card style={[DashboardStyles.card, { paddingLeft: 20 }]}>
+                <ImageBackground
+                  source={require('../../assets/kb-blue-background.png')}
+                  style={[
+                    {
+                      flex: 1,
+                      width: 200,
+                      marginTop: 10,
+                      paddingVertical: 100,
+                      height: '90%',
+                      position: 'absolute',
+                      right: 0,
+                    },
+                  ]}
+                />
+
+                <Card.Content>
+                  <Row>
+                    <Col customStyles={{ flex: 1 }}>
+                      <Text style={styles.cardHeader}>Profile </Text>
+                    </Col>
+                  </Row>
+
+                  <Row>
+                    <Col customStyles={{ flex: 1 }}>
+                      <View style={styles.btnContainer}>
+                        <ChangePasswordModal />
+                      </View>
+                    </Col>
+                  </Row>
+
+                  <SafeAreaView style={styles.image}>
+                    <Image
+                      source={{
+                        uri: profileImage,
+                      }}
+                      style={styles.img}
+                    />
+                  </SafeAreaView>
+                  <View style={styles.container}>
+                    <DataTable style={{ width: 500 }}>
+                      <DataTable.Row>
+                        <DataTable.Cell>
+                          <Text style={styles.profileName}>First Name :</Text>
+                        </DataTable.Cell>
+                        <DataTable.Cell>
+                          <Text style={styles.innerText}>{user.firstname}</Text>
+                        </DataTable.Cell>
+                      </DataTable.Row>
+                      <DataTable.Row>
+                        <DataTable.Cell>
+                          <Text style={styles.profileName}>Last Name :</Text>
+                        </DataTable.Cell>
+                        <DataTable.Cell>
+                          <Text style={styles.innerText}>{user.lastname}</Text>
+                        </DataTable.Cell>
+                      </DataTable.Row>
+                      <DataTable.Row>
+                        <DataTable.Cell>
+                          <Text style={styles.profileName}>SACCO/Investment Club :</Text>
+                        </DataTable.Cell>
+                        <DataTable.Cell>
+                          <Text style={styles.innerText}>{fsp}</Text>
+                        </DataTable.Cell>
+                      </DataTable.Row>
+                      <DataTable.Row>
+                        <DataTable.Cell>
+                          <Text style={styles.profileName}>Activation Date :</Text>
+                        </DataTable.Cell>
+                        <DataTable.Cell>
+                          <Text style={styles.innerText}>{moment(user.activationDate).format('DD/MM/YYYY')}</Text>
+                        </DataTable.Cell>
+                      </DataTable.Row>
+                    </DataTable>
+                  </View>
+
+                  <View style={{flexDirection:'row', width: '70%', marginTop: 40}}>
+                    <Pressable style={styles.SelectImagebutton} onPress={pickDocument}>
+                      <Text style={styles.SelectImagetextStyle}>Select Image</Text>
+                    </Pressable>
+                    {image  && (
+                      <Pressable style={[styles.SelectImagebutton, {marginLeft:4}]} onPress={uploadFile}>
+                        <Text style={styles.SelectImagetextStyle}>Confirm Image Change</Text>
+                      </Pressable>
+                    ) }
+                  </View>
+                </Card.Content>
+              </Card>
+            </Col>
+          </Row>
+        </Col>
+      </Row>
+
+      <Footer />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  img: {
+    width: 150,
+    height: 150,
+    borderWidth: 1,
+    borderRadius: 150 / 2,
+    borderColor: '#000',
+    // backgroundColor: 'gray',
+    //resizeMode: 'cover',
+  },
+  image: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  cardHeader: {
+    fontSize: 30,
+    color: '#2679b0',
+    fontWeight: 'bold',
+    marginTop: 20,
+    borderBottomColor: '#D3D3D3',
+    borderBottomWidth: 1,
+    marginLeft: 5,
+    marginRight: 5,
+  },
+  btnContainer: {
+    flex: 1,
+    alignItems: 'flex-end',
+    marginBottom: 50,
+  },
+  btn: {
+    backgroundColor: '#0782F9',
+    width: '20%',
+    textAlign: 'center',
+    padding: 15,
+    borderRadius: 5,
+    margin: 10,
+  },
+  profileName: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  innerText: {
+    color: 'grey',
+  },
+  buttonText: {
+    color: 'white',
+    fontWeight: '700',
+    fontSize: 20,
+  },
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // display: 'none',
+    // marginTop: 0,
+    // marginBottom: 0,
+    // marginLeft: 'auto',
+    // marginRight: 'auto',
+    padding: 40,
+  },
+
+  ProfileText: {
+    color: '#2679b0',
+    fontWeight: 'bold',
+    fontSize: 15,
+  },
+  choosePhoto: {
+    width: '20%',
+    padding: 20,
+  },
+  upload: {
+    backgroundColor: '#0782F9',
+    width: '17%',
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: 10,
+    borderRadius: 4,
+  },
+  text: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    margin: 5,
+  },
+  inputs: {
+    borderWidth: 1,
+    width: 300,
+    height: 40,
+    padding: 10,
+    margin: 10,
+    color: '#000',
+    fontSize: 16,
+  },
+  SelectImagebutton: {
+    borderRadius: 4,
+    padding: 10,
+    width: '70%',
+    elevation: 2,
+    marginTop: 5,
+    backgroundColor: '#2196F3',
+  },
+  SelectImagetextStyle: {
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+});
+
+
+
+
+userPorfileMobile
+import { StyleSheet, Text, View, SafeAreaView, Pressable, Image, Platform, TouchableHighlight ,TouchableOpacity} from 'react-native';
+import moment from 'moment';
+import React, { useState, useEffect } from 'react';
+// import { BottomSheet } from 'react-native-btr';
+import { Entypo } from '@expo/vector-icons';
+// import * as DocumentPicker from 'expo-document-picker';
+import { Provider, Card, TextInput, Button } from 'react-native-paper';
+import { useSelector } from 'react-redux';
+
+// import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+// import Row, { Col } from '../../components/Row';
+// import { styles as DashboardStyles } from '../dashboard/DashboardStyles';
+
+import { AccountService } from '../../components/common/account.service';
+import * as DocumentPicker from 'expo-document-picker';
+
+// import Changepassword from '../changePassword/ChangePasswordMob';
+
+export default function UserProfileMobile({ navigation }: any) {
+  const [password, setPassword] = useState('');
+  const [repeatPassword, setNewPassword] = useState('');
+  const [clientId,setClientId] = useState(Number)
+  
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [activationDate, setActivationDate] = useState([]);
+  const [fsp, setFsp] = useState('');
+  const profileImage = useSelector((state) => (state as any).image);
+  const user = useSelector((state) => (state as any).loggedInUser);
+
+  const accountService = new (AccountService as any)();
+
+  const getDisplayDetails = async () => {
+    // eslint-disable-next-line no-shadow
+    const clientId = await accountService.getClientId();
+    const tenantId = await accountService.getTenantId();
+
+    const user = await accountService
+      .getClient(clientId)
+      .then(async (response: any) => {
+        return response.data;
+      })
+      .catch(async (err: any) => {
+        console.log(err, 'No clients found');
+      });
+
+    setFirstName(user.firstname);
+    setLastName(user.lastname);
+    setActivationDate(user.activationDate);
+    setClientId(user.id)
+    setFsp(tenantId);
+  };
+  
+  useEffect(()=>{
+    getDisplayDetails();
+  },[false])
+
+  /**
+   * Handle password change
+   */
+  const handleSubmit = async () => {
+    // e.PreventDefault();
+    const data = { password, repeatPassword };
+
+    await accountService.changePassword(data).then((res: any) => {
+      setVisible(!visible);
+      return res.data;
+    });
+  };
+
+  /** 
+  const onclick = () => {
+    const data = new FormData();
+    data.append('file', photo);
+
+    console.log(data);
+    uploadFile(data);
+  };
+
+  const uploadFile = async (data) => {
+    const clientId = await accountService.getClientId();
+
+    accountService
+      .profileUpload(clientId, data)
+      .then((response) => {
+        return response.data;
+      })
+      .catch((error) => {
+        console.log(error, 'Photo was not uploaded');
+      });
+  };
+*/
+  // const pickDocument = async () => {
+  //   await DocumentPicker.getDocumentAsync({
+  //     type: '*/*',
+  //     copyToCacheDirectory: true,
+  //   }).then((response) => {
+  //     if (response.type === 'success') {
+  //       const { file } = response;
+  //       let { uri } = response;
+
+  //       if (Platform.OS === 'android' && uri[0] === '/') {
+  //         uri = `file://${uri}`;
+  //         uri = uri.replace(/%/g, '%25');
+  //       }
+
+  //       setProf(file);
+  //     }
+  //   });
+  // };
+
+  const [visible, setVisible] = useState(false);
+
+  const toggleBottomNavigationView = () => {
+    setVisible(!visible);
+  };
+
+  const apiHeaders = {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  };
+
+
+  const [image, setProf] = useState("");
+  const pickDocument = async () => {
+    await DocumentPicker.getDocumentAsync({
+      type: '*/*',
+      copyToCacheDirectory: true,
+    }).then((response: any) => {
+      if (response.type === 'success') {
+        const { file } = response;
+        let { uri } = response;
+
+        if (Platform.OS === 'android' && uri[0] === '/') {
+          uri = `file://${uri}`;
+          uri = uri.replace(/%/g, '%25');
+        }
+
+        setProf(file);
+        
+      }
+    });
+  };
+
+  const uploadFile = async () => {
+    const formData = new FormData();
+    formData.append('file', image);
+
+    // eslint-disable-next-line no-shadow
+    const clientId = await accountService.getClientId();
+
+    accountService
+      .profileUpload(clientId, formData, apiHeaders)
+      .then((response: any) => {
+        return console.log(response.data);
+      })
+      .catch((error: any) => {
+        console.log(error, 'Photo was not uploaded');
+      });
+
+      setProf("");
+
+  };
+
+  return (
+    <Provider>
+      <View style={{ backgroundColor: '#fff' }}>
+        <View style={{ height: 150, backgroundColor: '#2679b0' }}>
+          <View style={{ position: 'absolute', alignSelf: 'center' }}>
+            <SafeAreaView style={styles.image}>
+              <Image source={{ uri: profileImage, }} style={styles.img} />
+            </SafeAreaView>
+          </View>
+        </View>
+
+        <View style={{ height: 550 }}>
+          <View style={{ alignItems: 'center', marginTop: 50 }}>
+            <View style={{ margin: 10 }}>
+              <Text style={[styles.headerText, { marginLeft: 25 }]}>Full Name</Text>
+
+              <View style={{ alignItems: 'center' }}>
+                <Text style={styles.text}>
+                  {lastName} {firstName}
+                </Text>
+              </View>
+            </View>
+
+            <View style={{ margin: 10 }}>
+              <Text style={styles.headerText}>SACCO/Investment Club</Text>
+
+              <View style={{ alignItems: 'center' }}>
+                <Text style={styles.text}> {fsp}</Text>
+              </View>
+            </View>
+
+            <View style={{ margin: 10 }}>
+              <Text style={styles.headerText}> Activation Date</Text>
+
+              <View style={{ alignItems: 'center' }}>
+                <Text style={styles.text}>{moment(activationDate).format('DD/MM/YYYY')}</Text>
+              </View>
+            </View>
+            <View style={{ width: '70%', marginTop: 40 }}>
+              <Button
+                icon="lock"
+                color="#2679b0"
+                mode="contained"
+                onPress={toggleBottomNavigationView}
+              >
+                Change Password
+              </Button>
+            </View>
+            <View style={{flexDirection:'row', width: '70%', marginTop: 40}}>
+              <Pressable style={styles.SelectImagebutton} onPress={pickDocument}>
+                <Text style={styles.SelectImagetextStyle}>Select Image</Text>
+              </Pressable>
+              {image  && (
+                <Pressable style={[styles.SelectImagebutton, {marginLeft:4}]} onPress={uploadFile}>
+                  <Text style={styles.SelectImagetextStyle}>Confirm Image Change</Text>
+                </Pressable>
+              ) }
+            </View>
+          </View>
+        </View>
+
+        <View>
+          {/* <BottomSheet
+            visible={visible}
+            onBackButtonPress={toggleBottomNavigationView}
+            onBackdropPress={toggleBottomNavigationView}
+          >
+            <View>
+              <Card style={{ height: 300, borderRadius: 10 }}>
+                <View style={{ marginLeft: 30, marginTop: 10 }}>
+                  <Text style={styles.header}>Change Password</Text>
+                </View>
+
+                <View style={{ alignItems: 'center', marginTop: 10 }}>
+                  <TextInput
+                    placeholder="Enter New Password"
+                    secureTextEntry
+                    style={styles.inputs}
+                    onChangeText={(e: any) => setPassword(e)}
+                  />
+
+                  <TextInput
+                    placeholder="Confirm Password"
+                    secureTextEntry
+                    style={styles.inputs}
+                    onChangeText={(e: any) => setNewPassword(e)}
+                  />
+
+                  <TouchableHighlight style={[styles.button]} onPress={handleSubmit}>
+                    <Text style={styles.textStyle}>Change Password</Text>
+                  </TouchableHighlight>
+                </View>
+              </Card>
+            </View> */}
+          {/* </BottomSheet> */}
+        </View>
+      </View>
+    </Provider>
+  );
+}
+
+const styles = StyleSheet.create({
+  img: {
+    width: 150,
+    height: 150,
+    borderRadius: 150 / 2,
+    borderColor: 'white',
+    borderWidth: 5,
+  },
+  view: {
+    backgroundColor: '#2679b0',
+    height: '40%',
+  },
+  image: {
+    flex: 1,
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  choosePhoto: {
+    width: '40%',
+    paddingTop: 10,
+  },
+  btnContainer: {
+    flex: 1,
+    padding: 10,
+    alignItems: 'flex-end',
+  },
+  upDateProfileContainer: {
+    padding: 20,
+  },
+  inputs: {
+    borderWidth: 1,
+    width: 300,
+    height: 40,
+    padding: 10,
+    margin: 10,
+    color: '#000',
+    fontSize: 16,
+  },
+  button: {
+    borderRadius: 5,
+    padding: 10,
+    height: 50,
+    elevation: 2,
+    margin: 8,
+    width: 300,
+    backgroundColor: '#2196F3',
+  },
+  header: {
+    fontSize: 18,
+    justifyContent: 'flex-start',
+    color: 'rgb(41, 113, 182)',
+    marginLeft: 8,
+  },
+  text: {
+    color: '#2679b0',
+    fontSize: 17,
+    paddingTop: 10,
+  },
+  headerText: {
+    fontWeight: 'bold',
+    color: '#000',
+    fontSize: 16,
+  },
+  textStyle: {
+    color: 'white',
+    fontWeight: 'bold',
+    fontSize: 16,
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  upload: {
+    backgroundColor: '#0782F9',
+    width: '17%',
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    margin: 10,
+    borderRadius: 4,
+  },
+  SelectImagebutton: {
+    borderRadius: 4,
+    padding: 10,
+    flex: 1,
+    elevation: 2,
+    marginTop: 5,
+    backgroundColor: '#2196F3',
+  },
+  SelectImagetextStyle: {
+    color: 'white',
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+});
+
+
+
+
+
+
+
+
+
